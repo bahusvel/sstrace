@@ -1,3 +1,9 @@
+static_go: static_go.go
+	go build -o static_go static_go.go
+
+go_extract: static_go
+	objcopy -O binary --only-section=.text static_go static_go.text
+
 install: cmd/sstrace/main.go
 	go build -o sstrace cmd/sstrace/*.go
 
@@ -10,8 +16,5 @@ dump_test: build_test
 extract: build_test
 	objcopy -O binary --only-section=.text static static.text
 
-reference: extract
-	objdump -b binary -m i386:x86-64 -D static.text > static_text.S
-
-run: install dump_test reference
-	./sstrace static.text
+run: install dump_test go_extract extract
+	./sstrace static_go.text

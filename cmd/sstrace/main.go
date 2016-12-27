@@ -11,38 +11,46 @@ import (
 
 const MAX_LOOKBEHIND = 10
 
-func FindSyscall(insns []gapstone.Instruction) {
+func FindSyscall(insns []gapstone.Instruction) int {
 	if len(insns) == 0 {
 		panic("syscall too small")
 	}
-	fmt.Println("syscall")
 	for i := len(insns) - 1; i > 0; i-- {
 		insn := insns[i]
 		fmt.Printf("0x%x\t%s\t%s\n", insn.Address, insn.Mnemonic, insn.OpStr)
-		if insn.Mnemonic != "mov" {
-			continue
-		}
 		firstOp := insn.X86.Operands[0]
-		if firstOp.Type != gapstone.X86_OP_REG {
-			continue
-		}
-		switch firstOp.Reg {
-		case gapstone.X86_REG_RAX, gapstone.X86_REG_EAX:
-			break
-		default:
-			continue
-		}
-		fmt.Println("RAX FOUND")
 		secondOp := insn.X86.Operands[1]
-		if secondOp.Type != gapstone.X86_OP_IMM {
-			fmt.Printf("RAX is not immediate!!! %+v\n", secondOp)
-			return
+		switch insn.Mnemonic {
+		case "mov":
+			if firstOp.Type != gapstone.X86_OP_REG {
+				continue
+			}
+			switch firstOp.Reg {
+			case gapstone.X86_REG_RAX, gapstone.X86_REG_EAX:
+				if secondOp.Type != gapstone.X86_OP_IMM {
+					fmt.Printf("RAX is not immediate!!! %+v\n", secondOp)
+					return -1
+				}
+				return int(secondOp.Imm)
+			default:
+				continue
+			}
+		case "xor":
+			if firstOp.Type != gapstone.X86_OP_REG || secondOp.Type != gapstone.X86_OP_REG {
+				continue
+			}
+			switch firstOp.Reg {
+			case gapstone.X86_REG_RAX, gapstone.X86_REG_EAX:
+				if firstOp.Reg == secondOp.Reg {
+					return 0
+				}
+			default:
+				continue
+			}
 		}
-		fmt.Println("RAX is", secondOp.Imm)
-		return
-
 	}
 	log.Fatal("Rax not found")
+	return -1
 }
 
 func main() {
@@ -84,7 +92,8 @@ func main() {
 				} else {
 					behind = insns[0:i]
 				}
-				FindSyscall(behind)
+				call_nbr := FindSyscall(behind)
+				fmt.Println("Syscall ", call_nbr)
 			}
 		}
 		return
